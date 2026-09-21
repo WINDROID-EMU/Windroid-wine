@@ -329,6 +329,7 @@ static const struct user_driver_funcs android_drv_funcs =
     .pCreateWindowSurface = ANDROID_CreateWindowSurface,
     .pWindowPosChanged = ANDROID_WindowPosChanged,
     .pwine_get_wgl_driver = ANDROID_wine_get_wgl_driver,
+    .pVulkanInit = ANDROID_VulkanInit,
 };
 
 
@@ -570,6 +571,7 @@ static HRESULT android_init( void *arg )
 #endif
     }
     __wine_set_user_driver( &android_drv_funcs, WINE_GDI_DRIVER_VERSION );
+    start_windroid_ipc_client();
     return STATUS_SUCCESS;
 }
 

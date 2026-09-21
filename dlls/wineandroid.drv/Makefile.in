@@ -8,8 +8,10 @@ SOURCES = \
 	device.c \
 	dllmain.c \
 	init.c \
+	ipc.c \
 	keyboard.c \
 	opengl.c \
+	vulkan.c \
 	window.c \
 	wine.svg
 

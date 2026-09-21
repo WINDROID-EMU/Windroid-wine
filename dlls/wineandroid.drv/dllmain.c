@@ -73,12 +73,16 @@ static DWORD CALLBACK device_thread( void *arg )
 
     TRACE( "starting process %lx\n", GetCurrentProcessId() );
 
-    if (ANDROID_CALL( java_init, NULL )) return 0;  /* not running under Java */
+    if (ANDROID_CALL( java_init, NULL ))
+    {
+        TRACE( "not running under Java VM, continuing in standalone/IPC mode\n" );
+    }
 
     RtlInitUnicodeString( &nameW, driver_nameW );
     if ((status = IoCreateDriver( &nameW, init_android_driver )))
     {
         FIXME( "failed to create driver error %lx\n", status );
+        SetEvent( start_event );
         return status;
     }
 

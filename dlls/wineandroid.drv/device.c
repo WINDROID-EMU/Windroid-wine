@@ -698,7 +698,10 @@ static int status_to_android_error( unsigned int status )
 
 static jobject load_java_method( jmethodID *method, const char *name, const char *args )
 {
-    jobject object = *p_java_object;
+    jobject object;
+
+    if (!p_java_object || !*p_java_object || !jni_env) return NULL;
+    object = *p_java_object;
 
     if (!*method)
     {
@@ -744,7 +747,7 @@ static NTSTATUS createWindow_ioctl( void *data, DWORD in_size, DWORD out_size, U
 
     TRACE( "hwnd %08x opengl %u parent %08x\n", res->hdr.hwnd, res->hdr.opengl, res->parent );
 
-    if (!(object = load_java_method( &method, "createWindow", "(IZIFI)V" ))) return STATUS_NOT_SUPPORTED;
+    if (!(object = load_java_method( &method, "createWindow", "(IZIFI)V" ))) return STATUS_SUCCESS;
 
     wrap_java_call();
     (*jni_env)->CallVoidMethod( jni_env, object, method, res->hdr.hwnd, res->hdr.opengl, res->parent, res->scale, pid );
@@ -765,7 +768,11 @@ static NTSTATUS destroyWindow_ioctl( void *data, DWORD in_size, DWORD out_size, 
 
     TRACE( "hwnd %08x opengl %u\n", res->hdr.hwnd, res->hdr.opengl );
 
-    if (!(object = load_java_method( &method, "destroyWindow", "(I)V" ))) return STATUS_NOT_SUPPORTED;
+    if (!(object = load_java_method( &method, "destroyWindow", "(I)V" )))
+    {
+        if (win_data) free_native_win_data( win_data );
+        return STATUS_SUCCESS;
+    }
 
     wrap_java_call();
     (*jni_env)->CallVoidMethod( jni_env, object, method, res->hdr.hwnd );
@@ -787,7 +794,7 @@ static NTSTATUS windowPosChanged_ioctl( void *data, DWORD in_size, DWORD out_siz
            wine_dbgstr_rect(&res->visible_rect), res->style, res->flags, res->after, res->owner );
 
     if (!(object = load_java_method( &method, "windowPosChanged", "(IIIIIIIIIIIIIIIII)V" )))
-        return STATUS_NOT_SUPPORTED;
+        return STATUS_SUCCESS;
 
     wrap_java_call();
     (*jni_env)->CallVoidMethod( jni_env, object, method, res->hdr.hwnd, res->flags, res->after, res->owner, res->style,
@@ -1041,7 +1048,7 @@ static NTSTATUS setWindowParent_ioctl( void *data, DWORD in_size, DWORD out_size
 
     TRACE( "hwnd %08x parent %08x\n", res->hdr.hwnd, res->parent );
 
-    if (!(object = load_java_method( &method, "setParent", "(IIFI)V" ))) return STATUS_NOT_SUPPORTED;
+    if (!(object = load_java_method( &method, "setParent", "(IIFI)V" ))) return STATUS_SUCCESS;
 
     wrap_java_call();
     (*jni_env)->CallVoidMethod( jni_env, object, method, res->hdr.hwnd, res->parent, res->scale, pid );
@@ -1082,7 +1089,7 @@ static NTSTATUS setCursor_ioctl( void *data, DWORD in_size, DWORD out_size, ULON
     TRACE( "hwnd %08x size %d\n", res->hdr.hwnd, size );
 
     if (!(object = load_java_method( &method, "setCursor", "(IIIII[I)V" )))
-        return STATUS_NOT_SUPPORTED;
+        return STATUS_SUCCESS;
 
     wrap_java_call();
 

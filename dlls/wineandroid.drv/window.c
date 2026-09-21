@@ -601,6 +601,7 @@ static BOOL android_surface_flush( struct window_surface *window_surface, const 
     rc.top    = dirty->top;
     rc.right  = dirty->right;
     rc.bottom = dirty->bottom;
+    if (!surface->window) return FALSE;
 
     if (!surface->window->perform( surface->window, NATIVE_WINDOW_LOCK, &buffer, &rc ))
     {
