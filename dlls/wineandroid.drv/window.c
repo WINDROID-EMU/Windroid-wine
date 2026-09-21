@@ -181,9 +181,11 @@ int send_event( const union event_data *data )
 {
     int res;
 
+    if (event_pipe[1] <= 0) return -1;
+
     if ((res = write( event_pipe[1], data, sizeof(*data) )) != sizeof(*data))
     {
-        p__android_log_print( ANDROID_LOG_ERROR, "wine", "failed to send event" );
+        WINE_ANDROID_LOG( ANDROID_LOG_ERROR, "wine", "failed to send event" );
         return -1;
     }
     return 0;
@@ -203,7 +205,7 @@ void desktop_changed( JNIEnv *env, jobject obj, jint width, jint height )
     data.type = DESKTOP_CHANGED;
     data.desktop.width = width;
     data.desktop.height = height;
-    p__android_log_print( ANDROID_LOG_INFO, "wine", "desktop_changed: %ux%u", width, height );
+    WINE_ANDROID_LOG( ANDROID_LOG_INFO, "wine", "desktop_changed: %ux%u", width, height );
     send_event( &data );
 }
 
@@ -220,7 +222,7 @@ void config_changed( JNIEnv *env, jobject obj, jint dpi )
     memset( &data, 0, sizeof(data) );
     data.type = CONFIG_CHANGED;
     data.cfg.dpi = dpi;
-    p__android_log_print( ANDROID_LOG_INFO, "wine", "config_changed: %u dpi", dpi );
+    WINE_ANDROID_LOG( ANDROID_LOG_INFO, "wine", "config_changed: %u dpi", dpi );
     send_event( &data );
 }
 
@@ -240,15 +242,18 @@ void surface_changed( JNIEnv *env, jobject obj, jint win, jobject surface, jbool
     if (surface)
     {
         int width, height;
-        ANativeWindow *win = pANativeWindow_fromSurface( env, surface );
+        ANativeWindow *win = pANativeWindow_fromSurface ? pANativeWindow_fromSurface( env, surface ) : NULL;
 
-        if (win->query( win, NATIVE_WINDOW_WIDTH, &width ) < 0) width = 0;
-        if (win->query( win, NATIVE_WINDOW_HEIGHT, &height ) < 0) height = 0;
-        data.surface.window = win;
-        data.surface.width = width;
-        data.surface.height = height;
-        p__android_log_print( ANDROID_LOG_INFO, "wine", "surface_changed: %p %s %ux%u",
+        if (win)
+        {
+            if (win->query( win, NATIVE_WINDOW_WIDTH, &width ) < 0) width = 0;
+            if (win->query( win, NATIVE_WINDOW_HEIGHT, &height ) < 0) height = 0;
+            data.surface.window = win;
+            data.surface.width = width;
+            data.surface.height = height;
+            WINE_ANDROID_LOG( ANDROID_LOG_INFO, "wine", "surface_changed: %p %s %ux%u",
                               data.surface.hwnd, client ? "client" : "whole", width, height );
+        }
     }
     data.type = SURFACE_CHANGED;
     send_event( &data );

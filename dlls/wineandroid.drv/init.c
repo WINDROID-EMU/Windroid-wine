@@ -554,13 +554,14 @@ static HRESULT android_init( void *arg )
     register_window_callback = params->register_window_callback;
     start_device_callback = params->start_device_callback;
 
+    load_android_libs();
+
     if ((java_vm = *p_java_vm))  /* running under Java */
     {
 #ifdef __i386__
         WORD old_fs;
         __asm__( "mov %%fs,%0" : "=r" (old_fs) );
 #endif
-        load_android_libs();
         (*java_vm)->AttachCurrentThread( java_vm, &jni_env, 0 );
         class = (*jni_env)->GetObjectClass( jni_env, object );
         (*jni_env)->RegisterNatives( jni_env, class, methods, ARRAY_SIZE( methods ));

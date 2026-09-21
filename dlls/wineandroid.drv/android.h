@@ -48,6 +48,9 @@ DECL_FUNCPTR( ANativeWindow_fromSurface );
 DECL_FUNCPTR( ANativeWindow_release );
 #undef DECL_FUNCPTR
 
+#define WINE_ANDROID_LOG(prio, tag, ...) \
+    do { if (p__android_log_print) p__android_log_print( (prio), (tag), __VA_ARGS__ ); } while (0)
+
 
 /**************************************************************************
  * OpenGL driver

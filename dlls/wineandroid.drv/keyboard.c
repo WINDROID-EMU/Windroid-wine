@@ -712,8 +712,8 @@ jboolean keyboard_event( JNIEnv *env, jobject obj, jint win, jint action, jint k
     if ((unsigned int)keycode >= ARRAY_SIZE( keycode_to_vkey ) ||
         !keycode_to_vkey[keycode])
     {
-        p__android_log_print( ANDROID_LOG_WARN, "wine",
-                              "keyboard_event: win %x code %u unmapped key, ignoring", win, keycode );
+        WINE_ANDROID_LOG( ANDROID_LOG_WARN, "wine",
+                          "keyboard_event: win %x code %u unmapped key, ignoring", win, keycode );
         return JNI_FALSE;
     }
     data.type = KEYBOARD_EVENT;
@@ -727,9 +727,9 @@ jboolean keyboard_event( JNIEnv *env, jobject obj, jint win, jint action, jint k
     data.kbd.input.ki.dwFlags     = (data.kbd.input.ki.wScan & 0x100) ? KEYEVENTF_EXTENDEDKEY : 0;
     if (action == AKEY_EVENT_ACTION_UP) data.kbd.input.ki.dwFlags |= KEYEVENTF_KEYUP;
 
-    p__android_log_print( ANDROID_LOG_INFO, "wine",
-                          "keyboard_event: win %x code %u vkey %x scan %x meta %x",
-                          win, keycode, data.kbd.input.ki.wVk, data.kbd.input.ki.wScan, state );
+    WINE_ANDROID_LOG( ANDROID_LOG_INFO, "wine",
+                      "keyboard_event: win %x code %u vkey %x scan %x meta %x",
+                      win, keycode, data.kbd.input.ki.wVk, data.kbd.input.ki.wScan, state );
     send_event( &data );
     return JNI_TRUE;
 }
