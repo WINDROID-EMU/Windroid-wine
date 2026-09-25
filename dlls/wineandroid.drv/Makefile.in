@@ -14,5 +14,3 @@ SOURCES = \
 	vulkan.c \
 	window.c \
 	wine.svg
-
-EXTRA_TARGETS = wine-debug.apk

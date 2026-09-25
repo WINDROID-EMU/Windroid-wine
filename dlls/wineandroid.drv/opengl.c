@@ -39,6 +39,14 @@
 #include <EGL/egl.h>
 #endif
 
+#ifndef SONAME_LIBEGL
+#define SONAME_LIBEGL "libEGL.so"
+#endif
+
+#ifndef SONAME_LIBGLESV2
+#define SONAME_LIBGLESV2 "libGLESv2.so"
+#endif
+
 #include "android.h"
 #include "winternl.h"
 
