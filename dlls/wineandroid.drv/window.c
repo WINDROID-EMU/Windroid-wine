@@ -26,6 +26,10 @@
 
 #include "config.h"
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <assert.h>
 #include <fcntl.h>
 #include <poll.h>
