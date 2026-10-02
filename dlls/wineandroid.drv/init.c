@@ -476,6 +476,8 @@ static void load_hardware_libs(void)
     int ret;
     void *libhardware;
 
+    if (!p_java_vm || !*p_java_vm) return;
+
     if ((libhardware = dlopen( "libhardware.so", RTLD_GLOBAL )))
     {
         LOAD_FUNCPTR( libhardware, hw_get_module );
@@ -511,17 +513,18 @@ static void load_android_libs(void)
 {
     void *libandroid, *liblog;
 
+    if ((liblog = dlopen( "liblog.so", RTLD_GLOBAL )))
+    {
+        LOAD_FUNCPTR( liblog, __android_log_print );
+    }
+
+    if (!p_java_vm || !*p_java_vm) return;
+
     if (!(libandroid = dlopen( "libandroid.so", RTLD_GLOBAL )))
     {
         ERR( "failed to load libandroid.so: %s\n", dlerror() );
         return;
     }
-    if (!(liblog = dlopen( "liblog.so", RTLD_GLOBAL )))
-    {
-        ERR( "failed to load liblog.so: %s\n", dlerror() );
-        return;
-    }
-    LOAD_FUNCPTR( liblog, __android_log_print );
     LOAD_FUNCPTR( libandroid, ANativeWindow_fromSurface );
     LOAD_FUNCPTR( libandroid, ANativeWindow_release );
 }
