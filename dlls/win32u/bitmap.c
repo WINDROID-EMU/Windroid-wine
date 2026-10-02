@@ -116,6 +116,8 @@ HBITMAP WINAPI NtGdiCreateBitmap( INT width, INT height, UINT planes,
     if (width < 0)
         width = -width;
 
+    if (!planes) planes = 1;
+
     if (planes != 1)
     {
         FIXME("planes = %d\n", planes);
