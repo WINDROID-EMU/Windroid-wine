@@ -1161,7 +1161,7 @@ NTSTATUS android_java_init( void *arg )
 {
     JavaVM *java_vm;
 
-    if (!(java_vm = *p_java_vm)) return STATUS_UNSUCCESSFUL;  /* not running under Java */
+    if (!p_java_vm || !(java_vm = *p_java_vm)) return STATUS_UNSUCCESSFUL;  /* not running under Java */
 
     init_java_thread( java_vm );
     create_desktop_window( NtUserGetDesktopWindow() );
@@ -1172,7 +1172,7 @@ NTSTATUS android_java_uninit( void *arg )
 {
     JavaVM *java_vm;
 
-    if (!(java_vm = *p_java_vm)) return STATUS_UNSUCCESSFUL;  /* not running under Java */
+    if (!p_java_vm || !(java_vm = *p_java_vm)) return STATUS_UNSUCCESSFUL;  /* not running under Java */
 
     wrap_java_call();
     (*java_vm)->DetachCurrentThread( java_vm );

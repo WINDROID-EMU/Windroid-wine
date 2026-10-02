@@ -85,7 +85,7 @@ void init_monitors( int width, int height )
            wine_dbgstr_rect( &rect ), wine_dbgstr_rect( &monitor_rc_work ));
 
     /* if we're notified from Java thread, update registry */
-    if (*p_java_vm) NtUserCallNoParam( NtUserCallNoParam_DisplayModeChanged );
+    if (p_java_vm && *p_java_vm) NtUserCallNoParam( NtUserCallNoParam_DisplayModeChanged );
 }
 
 
@@ -169,7 +169,7 @@ void set_screen_dpi( DWORD dpi )
  */
 static void fetch_display_metrics(void)
 {
-    if (*p_java_vm) return;  /* for Java threads it will be set when the top view is created */
+    if (p_java_vm && *p_java_vm) return;  /* for Java threads it will be set when the top view is created */
 
     SERVER_START_REQ( get_window_rectangles )
     {
@@ -268,6 +268,14 @@ UINT ANDROID_UpdateDisplayDevices( const struct gdi_device_manager *device_manag
 {
     static const DWORD source_flags = DISPLAY_DEVICE_ATTACHED_TO_DESKTOP | DISPLAY_DEVICE_PRIMARY_DEVICE | DISPLAY_DEVICE_VGA_COMPATIBLE;
     struct pci_id pci_id = {0};
+
+    if (!screen_width || !screen_height)
+    {
+        screen_width = 1280;
+        screen_height = 720;
+        init_monitors( screen_width, screen_height );
+    }
+
     struct gdi_monitor gdi_monitor =
     {
         .rc_monitor = virtual_screen_rect,
@@ -541,8 +549,6 @@ static HRESULT android_init( void *arg )
     p_java_object = dlsym( ntdll, "java_object" );
     p_java_gdt_sel = dlsym( ntdll, "java_gdt_sel" );
 
-    object = *p_java_object;
-
     load_hardware_libs();
 
     pthread_mutexattr_init( &attr );
@@ -556,7 +562,7 @@ static HRESULT android_init( void *arg )
 
     load_android_libs();
 
-    if ((java_vm = *p_java_vm))  /* running under Java */
+    if (p_java_vm && (java_vm = *p_java_vm) && p_java_object && (object = *p_java_object))  /* running under Java */
     {
 #ifdef __i386__
         WORD old_fs;

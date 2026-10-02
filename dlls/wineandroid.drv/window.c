@@ -405,7 +405,7 @@ static int process_events( DWORD mask )
     struct java_event *event, *next, *previous;
     unsigned int count = 0;
 
-    assert( GetCurrentThreadId() == desktop_tid );
+    if (!desktop_tid || GetCurrentThreadId() != desktop_tid) return 0;
 
     pull_events();
 
@@ -525,7 +525,7 @@ static int process_events( DWORD mask )
  */
 static int wait_events( int timeout )
 {
-    assert( GetCurrentThreadId() == desktop_tid );
+    if (!desktop_tid || GetCurrentThreadId() != desktop_tid) return -1;
 
     for (;;)
     {
@@ -1212,15 +1212,11 @@ LRESULT ANDROID_WindowMessage( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
  */
 BOOL ANDROID_CreateDesktop( const WCHAR *name, UINT width, UINT height )
 {
-    /* wait until we receive the surface changed event */
-    while (!screen_width)
+    if (width && height)
     {
-        if (wait_events( 2000 ) != 1)
-        {
-            ERR( "wait timed out\n" );
-            break;
-        }
-        process_events( QS_ALLINPUT );
+        screen_width = width;
+        screen_height = height;
+        init_monitors( screen_width, screen_height );
     }
-    return 0;
+    return TRUE;
 }
