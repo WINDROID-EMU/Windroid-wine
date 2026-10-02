@@ -1013,6 +1013,16 @@ static void load_display_driver(void)
 
     if (!load_desktop_driver( get_desktop_window() ) || user_driver == &lazy_load_driver)
     {
+        static const WCHAR android_drvW[] = {'w','i','n','e','a','n','d','r','o','i','d','.','d','r','v',0};
+        void *ret_ptr;
+        ULONG ret_len;
+
+        if (!KeUserModeCallback( NtUserLoadDriver, android_drvW, sizeof(android_drvW), &ret_ptr, &ret_len )
+            && user_driver != &lazy_load_driver)
+        {
+            return;
+        }
+
         winstation = NtUserGetProcessWindowStation();
         if (!NtUserGetObjectInformation( winstation, UOI_FLAGS, &flags, sizeof(flags), NULL )
             || (flags.dwFlags & WSF_VISIBLE))
