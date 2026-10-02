@@ -9631,7 +9631,8 @@ printf "%s\n" "#define _GNU_SOURCE 1" >>confdefs.h
     DLLFLAGS="$DLLFLAGS -fPIC"
     LDDLLFLAGS="-fPIC"
     LDEXECFLAGS="-Wl,-pie"
-    enable_winex11_drv=${enable_winex11_drv:-yes}
+    enable_wineandroid_drv=${enable_wineandroid_drv:-yes}
+    enable_winex11_drv=no
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether the compiler supports -Wl,-z,defs" >&5
 printf %s "checking whether the compiler supports -Wl,-z,defs... " >&6; }
 if test ${ac_cv_cflags__Wl__z_defs+y}
