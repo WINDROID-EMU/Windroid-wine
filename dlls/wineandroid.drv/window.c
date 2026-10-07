@@ -212,7 +212,6 @@ void desktop_changed( JNIEnv *env, jobject obj, jint width, jint height )
     {
         screen_width = width;
         screen_height = height;
-        init_monitors( screen_width, screen_height );
     }
 
     memset( &data, 0, sizeof(data) );
