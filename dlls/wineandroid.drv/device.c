@@ -44,9 +44,18 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(android);
 
+#ifdef HAVE_LINUX_TYPES_H
+#include <linux/types.h>
+#elif !defined(__s32)
+typedef int __s32;
+#endif
+
 #ifndef SYNC_IOC_WAIT
 #define SYNC_IOC_WAIT _IOW('>', 0, __s32)
 #endif
+
+static void buffer_incRef( struct android_native_base_t *base );
+static void buffer_decRef( struct android_native_base_t *base );
 
 static HANDLE thread;
 static JNIEnv *jni_env;
@@ -819,7 +828,55 @@ static NTSTATUS dequeueBuffer_ioctl( void *data, DWORD in_size, DWORD out_size, 
         return STATUS_INVALID_PARAMETER;
 
     if (!(win_data = get_ioctl_native_win_data( &res->hdr ))) return STATUS_INVALID_HANDLE;
-    if (!(parent = win_data->parent)) return STATUS_DEVICE_NOT_READY;
+    if (!(parent = win_data->parent))
+    {
+        HANDLE mapping = 0;
+        int width = screen_width ? screen_width : 1280;
+        int height = screen_height ? screen_height : 720;
+        int format = win_data->buffer_format ? win_data->buffer_format : 1;
+
+        if (!win_data->buffers[0])
+        {
+            struct native_buffer_wrapper *buf = calloc( 1, sizeof(*buf) );
+            if (!buf) return STATUS_NO_MEMORY;
+            buf->buffer.common.magic   = ANDROID_NATIVE_BUFFER_MAGIC;
+            buf->buffer.common.version = sizeof( buf->buffer );
+            buf->buffer.common.incRef  = buffer_incRef;
+            buf->buffer.common.decRef  = buffer_decRef;
+            buf->buffer.width          = width;
+            buf->buffer.height         = height;
+            buf->buffer.stride         = width;
+            buf->buffer.format         = format;
+            buf->buffer.usage          = 0;
+            buf->ref                   = 1;
+            buf->hwnd                  = win_data->hwnd;
+            buf->buffer_id             = 0;
+            buf->generation            = win_data->generation;
+            win_data->buffers[0]       = &buf->buffer;
+        }
+
+        buffer = win_data->buffers[0];
+        res->width  = buffer->width;
+        res->height = buffer->height;
+        res->stride = buffer->stride;
+        res->format = buffer->format;
+        res->usage  = buffer->usage;
+        res->buffer_id = register_buffer( win_data, buffer, res->win32 ? &mapping : NULL, &is_new );
+        res->generation = win_data->generation;
+
+        *ret_size = offsetof( struct ioctl_android_dequeueBuffer, native_handle );
+        if (is_new)
+        {
+            OBJECT_ATTRIBUTES attr = { .Length = sizeof(attr) };
+            CLIENT_ID cid = { .UniqueProcess = UlongToHandle( current_client_id() ) };
+            HANDLE process;
+            NtOpenProcess( &process, PROCESS_DUP_HANDLE, &attr, &cid );
+            map_native_handle( &res->native_handle, buffer->handle, mapping, process );
+            NtClose( process );
+            *ret_size = sizeof( *res );
+        }
+        return STATUS_SUCCESS;
+    }
 
     *ret_size = offsetof( struct ioctl_android_dequeueBuffer, native_handle );
     wrap_java_call();
@@ -865,7 +922,7 @@ static NTSTATUS cancelBuffer_ioctl( void *data, DWORD in_size, DWORD out_size, U
     if (in_size < sizeof(*res)) return STATUS_INVALID_PARAMETER;
 
     if (!(win_data = get_ioctl_native_win_data( &res->hdr ))) return STATUS_INVALID_HANDLE;
-    if (!(parent = win_data->parent)) return STATUS_DEVICE_NOT_READY;
+    if (!(parent = win_data->parent)) return STATUS_SUCCESS;
     if (res->generation != win_data->generation) return STATUS_SUCCESS;  /* obsolete buffer, ignore */
 
     if (!(buffer = get_registered_buffer( win_data, res->buffer_id ))) return STATUS_INVALID_HANDLE;
@@ -888,7 +945,7 @@ static NTSTATUS queueBuffer_ioctl( void *data, DWORD in_size, DWORD out_size, UL
     if (in_size < sizeof(*res)) return STATUS_INVALID_PARAMETER;
 
     if (!(win_data = get_ioctl_native_win_data( &res->hdr ))) return STATUS_INVALID_HANDLE;
-    if (!(parent = win_data->parent)) return STATUS_DEVICE_NOT_READY;
+    if (!(parent = win_data->parent)) return STATUS_SUCCESS;
     if (res->generation != win_data->generation) return STATUS_SUCCESS;  /* obsolete buffer, ignore */
 
     if (!(buffer = get_registered_buffer( win_data, res->buffer_id ))) return STATUS_INVALID_HANDLE;
@@ -919,7 +976,36 @@ static NTSTATUS query_ioctl( void *data, DWORD in_size, DWORD out_size, ULONG_PT
     if (out_size < sizeof(*res)) return STATUS_BUFFER_OVERFLOW;
 
     if (!(win_data = get_ioctl_native_win_data( &res->hdr ))) return STATUS_INVALID_HANDLE;
-    if (!(parent = win_data->parent)) return STATUS_DEVICE_NOT_READY;
+    if (!(parent = win_data->parent))
+    {
+        *ret_size = sizeof( *res );
+        switch (res->what)
+        {
+        case NATIVE_WINDOW_WIDTH:
+        case NATIVE_WINDOW_DEFAULT_WIDTH:
+            res->value = screen_width ? screen_width : 1280;
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_HEIGHT:
+        case NATIVE_WINDOW_DEFAULT_HEIGHT:
+            res->value = screen_height ? screen_height : 720;
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_FORMAT:
+            res->value = win_data->buffer_format ? win_data->buffer_format : 1;
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS:
+            res->value = 1;
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_QUEUES_TO_WINDOW_COMPOSER:
+            res->value = 1;
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_CONCRETE_TYPE:
+            res->value = 0;
+            return STATUS_SUCCESS;
+        default:
+            res->value = 0;
+            return STATUS_SUCCESS;
+        }
+    }
 
     *ret_size = sizeof( *res );
     wrap_java_call();
@@ -938,7 +1024,33 @@ static NTSTATUS perform_ioctl( void *data, DWORD in_size, DWORD out_size, ULONG_
     if (in_size < sizeof(*res)) return STATUS_INVALID_PARAMETER;
 
     if (!(win_data = get_ioctl_native_win_data( &res->hdr ))) return STATUS_INVALID_HANDLE;
-    if (!(parent = win_data->parent)) return STATUS_DEVICE_NOT_READY;
+    if (!(parent = win_data->parent))
+    {
+        switch (res->operation)
+        {
+        case NATIVE_WINDOW_SET_BUFFERS_FORMAT:
+            win_data->buffer_format = res->args[0];
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_API_CONNECT:
+            win_data->api = res->args[0];
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_API_DISCONNECT:
+            win_data->api = 0;
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_SET_BUFFERS_GEOMETRY:
+            if (res->args[2] > 0) win_data->buffer_format = res->args[2];
+            return STATUS_SUCCESS;
+        case NATIVE_WINDOW_SET_BUFFERS_TIMESTAMP:
+        case NATIVE_WINDOW_SET_USAGE:
+        case NATIVE_WINDOW_SET_BUFFER_COUNT:
+        case NATIVE_WINDOW_SET_CROP:
+        case NATIVE_WINDOW_LOCK:
+        case NATIVE_WINDOW_UNLOCK_AND_POST:
+            return STATUS_SUCCESS;
+        default:
+            return STATUS_SUCCESS;
+        }
+    }
 
     switch (res->operation)
     {

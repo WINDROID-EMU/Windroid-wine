@@ -185,7 +185,10 @@ int send_event( const union event_data *data )
 {
     int res;
 
-    if (event_pipe[1] <= 0) return -1;
+    if (event_pipe[1] <= 0)
+    {
+        if (pipe2( event_pipe, O_CLOEXEC | O_NONBLOCK ) == -1) return -1;
+    }
 
     if ((res = write( event_pipe[1], data, sizeof(*data) )) != sizeof(*data))
     {
@@ -204,6 +207,13 @@ int send_event( const union event_data *data )
 void desktop_changed( JNIEnv *env, jobject obj, jint width, jint height )
 {
     union event_data data;
+
+    if (width > 0 && height > 0)
+    {
+        screen_width = width;
+        screen_height = height;
+        init_monitors( screen_width, screen_height );
+    }
 
     memset( &data, 0, sizeof(data) );
     data.type = DESKTOP_CHANGED;
@@ -349,10 +359,13 @@ static void init_event_queue(void)
     HANDLE handle;
     int ret;
 
-    if (pipe2( event_pipe, O_CLOEXEC | O_NONBLOCK ) == -1)
+    if (event_pipe[1] <= 0)
     {
-        ERR( "could not create data\n" );
-        NtTerminateProcess( 0, 1 );
+        if (pipe2( event_pipe, O_CLOEXEC | O_NONBLOCK ) == -1)
+        {
+            ERR( "could not create data\n" );
+            NtTerminateProcess( 0, 1 );
+        }
     }
     if (wine_server_fd_to_handle( event_pipe[0], GENERIC_READ | SYNCHRONIZE, 0, &handle ))
     {
@@ -610,7 +623,7 @@ static BOOL android_surface_flush( struct window_surface *window_surface, const 
     rc.top    = dirty->top;
     rc.right  = dirty->right;
     rc.bottom = dirty->bottom;
-    if (!surface->window) return FALSE;
+    if (!surface->window) return TRUE;
 
     if (!surface->window->perform( surface->window, NATIVE_WINDOW_LOCK, &buffer, &rc ))
     {
@@ -971,16 +984,20 @@ BOOL ANDROID_ProcessEvents( DWORD mask )
  */
 BOOL ANDROID_CreateWindow( HWND hwnd )
 {
+    struct android_win_data *data;
+
     TRACE( "%p\n", hwnd );
 
     if (hwnd == NtUserGetDesktopWindow())
     {
-        struct android_win_data *data;
-
         init_event_queue();
         start_android_device();
         if (!(data = alloc_win_data( hwnd ))) return FALSE;
         release_win_data( data );
+    }
+    else
+    {
+        if ((data = alloc_win_data( hwnd ))) release_win_data( data );
     }
     return TRUE;
 }
@@ -1047,7 +1064,11 @@ BOOL ANDROID_CreateWindowSurface( HWND hwnd, BOOL layered, const RECT *surface_r
     TRACE( "hwnd %p, layered %u, surface_rect %s, surface %p\n", hwnd, layered, wine_dbgstr_rect( surface_rect ), surface );
 
     if ((previous = *surface) && previous->funcs == &android_surface_funcs) return TRUE;
-    if (!(data = get_win_data( hwnd ))) return TRUE; /* use default surface */
+    if (!(data = get_win_data( hwnd )))
+    {
+        data = alloc_win_data( hwnd );
+        if (!data) return TRUE;
+    }
     if (previous) window_surface_release( previous );
 
     *surface = create_surface( data->hwnd, surface_rect );

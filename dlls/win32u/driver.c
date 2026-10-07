@@ -1017,11 +1017,8 @@ static void load_display_driver(void)
         void *ret_ptr;
         ULONG ret_len;
 
-        if (!KeUserModeCallback( NtUserLoadDriver, android_drvW, sizeof(android_drvW), &ret_ptr, &ret_len )
-            && user_driver != &lazy_load_driver)
-        {
-            return;
-        }
+        KeUserModeCallback( NtUserLoadDriver, android_drvW, sizeof(android_drvW), &ret_ptr, &ret_len );
+        if (user_driver != &lazy_load_driver) return;
 
         winstation = NtUserGetProcessWindowStation();
         if (!NtUserGetObjectInformation( winstation, UOI_FLAGS, &flags, sizeof(flags), NULL )
